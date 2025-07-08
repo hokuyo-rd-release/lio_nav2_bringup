@@ -20,7 +20,7 @@ colcon build --symlink-install
 ## 自己位置推定の起動
 
 ```
-export $MAP_DIR=<地図のディレクトリ>
+export MAP_DIR=<地図のディレクトリ>
 
 ros2 launch simple_fastlio_localization localization.py \
 map_file:=$MAP_DIR/toyonaka.pcd \
@@ -30,7 +30,9 @@ cloud_odom_topic:=/hokuyo_lio/aligned_scan_points \
 publish_2d_pose:=true \
 frames_accumulate:=4 \
 rviz:=true \
-rviz_config:=$(ros2 pkg prefix lio_nav2_bringup)/share/lio_nav2_bringup/rviz/loc.rviz
+rviz_config:=$(ros2 pkg prefix lio_nav2_bringup)/share/lio_nav2_bringup/rviz/loc.rviz \
+visualize_registration_result:=true \
+enable_sound:=true
 ```
 - パラメータ
    - map_file: 3D地図PCDファイル
@@ -40,6 +42,8 @@ rviz_config:=$(ros2 pkg prefix lio_nav2_bringup)/share/lio_nav2_bringup/rviz/loc
    - publish_2d_pose: 2Dに投影した位置姿勢を配信（必要）
    - frames_accumulate: レジストレーションに使う点群を何フレーム集積するか
    - rviz: rviz2を起動する
+   - visualize_registration_result: 地図に対するレジストレーションの成功失敗の可視化
+   - enable_sound: 地図に対するレジストレーションの成功失敗の効果音で通知
  
 ## Navigation2の起動
 ```
@@ -69,4 +73,5 @@ ros2 launch lio_nav2_bringup navigation_launch.py map:=$MAP_DIR/toyonaka.yaml
 - オドメトリ（/odom -> /base_link）はLIOを使用する想定。車輪オドメトリを使用する場合はtf構成の修正が必要
 
 # 変更履歴
+- 2025/7/8 レジストレーションの状況の可視化・可聴化オプションの説明を追加
 - 2025/6/15 初版
