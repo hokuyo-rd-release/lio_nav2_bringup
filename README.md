@@ -29,6 +29,7 @@ odom_topic:=/hokuyo_lio/lidar_odom \
 cloud_odom_topic:=/hokuyo_lio/aligned_scan_points \
 publish_2d_pose:=true \
 frames_accumulate:=4 \
+enable_lio_only_update:=false \
 rviz:=true \
 rviz_config:=$(ros2 pkg prefix lio_nav2_bringup)/share/lio_nav2_bringup/rviz/loc.rviz \
 visualize_registration_result:=true \
@@ -41,6 +42,7 @@ enable_sound:=true
    - cloud_odom_topic: LIO座標系での点群トピック
    - publish_2d_pose: 2Dに投影した位置姿勢を配信（必要）
    - frames_accumulate: レジストレーションに使う点群を何フレーム集積するか
+   - enable_lio_only_update: レジストレーションのタイミングだけではなく，LIOのタイミングで更新した自己位置を配信する
    - rviz: rviz2を起動する
    - visualize_registration_result: 地図に対するレジストレーションの成功失敗の可視化
    - enable_sound: 地図に対するレジストレーションの成功失敗の効果音で通知
