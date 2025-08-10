@@ -1,0 +1,117 @@
+<launch>
+    <arg name="namespace" default="" description="Top-level namespace"/>
+    <arg name="use_sim_time" default="false" description="Use simulation (Gazebo) clock if true"/>
+    <arg name="params_file" default="$(find-pkg-share nav2_bringup)/params/nav2_params.yaml" description="Full path to the ROS2 parameters file to use for all launched nodes"/>
+    <arg name="autostart" default="true" description="Automatically startup the nav2 stack"/>
+    <arg name="use_composition" default="False" description="Use composed bringup if True"/>
+    <arg name="container_name" default="nav2_container" description="the name of conatiner that nodes will load in if use composition"/>
+    <arg name="use_respawn" default="False" description="Whether to respawn if a node crashes. Applied when composition is disabled."/>
+    <arg name="log_level" default="info" description="log level"/>
+    <arg name="map" default="$(find-pkg-share nav2_bringup)/maps/map.yaml" description="Full path to map yaml file"/>
+    <arg name="cmd_vel_topic" default="/wizurg/cmd_vel" />
+    <arg name="odom_topic" default="lio_odom" />
+    
+
+    <let name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
+
+    <let name="remappings" value="['/tf', 'tf', '/tf_static', 'tf_static']"/>
+
+    <let name="configured_params_file" value="$(find-pkg-share nav2_bringup)/params/nav2_params_$(var namespace).yaml"/>
+    <node pkg="nav2_common" exec="rewrite_yaml" name="rewrite_yaml_params" output="screen">
+        <param name="source_file" value="$(var params_file)"/>
+        <param name="destination_file" value="$(var configured_params_file)"/>
+        <param name="root_key" value="$(var namespace)"/>
+        <param name="param_rewrites" value="['use_sim_time:=$(var use_sim_time)', 'autostart:=$(var autostart)']"/>
+    </node>
+    
+    <group unless="$(var use_composition)">
+        <node pkg="rviz2" exec="rviz2" name="rviz2" output="screen" args="-d $(find-pkg-share nav2_bringup)/rviz/nav2_default_view.rviz"/>
+        <!-- <node pkg="tf2_ros" exec="static_transform_publisher" name="hokuyo3d" output="screen" args="0 0 0 0 0 0 base_link yvt"/> -->
+        <!-- <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan" output="screen">
+            <remap from="cloud_in" to="/hokuyo3d/hokuyo_cloud2"/>
+            <remap from="scan" to="/hokuyo3d/scan"/>
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="min_height" value="0.0"/>
+            <param name="max_height" value="3.0"/>
+            <param name="angle_min" value="-3.1415"/>
+            <param name="angle_max" value="3.1415"/>
+        </node> -->
+        <node pkg="nav2_map_server" exec="map_server" name="map_server" output="screen">
+            <param name="yaml_filename" value="$(var map)"/>
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_controller" exec="controller_server" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="cmd_vel" to="$(var cmd_vel_topic)"/>
+            <remap from="odom" to="$(var odom_topic)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_smoother" exec="smoother_server" name="smoother_server" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_planner" exec="planner_server" name="planner_server" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_behaviors" exec="behavior_server" name="behavior_server" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_bt_navigator" exec="bt_navigator" name="bt_navigator" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_waypoint_follower" exec="waypoint_follower" name="waypoint_follower" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_velocity_smoother" exec="velocity_smoother" name="velocity_smoother" output="screen" respawn="$(var use_respawn)" respawn_delay="2.0">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <remap from="cmd_vel" to="$(var cmd_vel_topic)"/>
+            <remap from="cmd_vel_smoothed" to="cmd_vel"/>
+            <remap from="/tf" to="tf"/>
+            <remap from="/tf_static" to="tf_static"/>
+        </node>
+        <node pkg="nav2_lifecycle_manager" exec="lifecycle_manager" name="lifecycle_manager_navigation" output="screen">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+            <param name="autostart" value="$(var autostart)"/>
+            <param name="node_names" value="['map_server', 'controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother']"/>
+        </node>
+    </group>
+
+    <group if="$(var use_composition)">
+        <node pkg="rclcpp_components" exec="component_container" name="$(var container_name)" output="screen">
+            <param name="use_sim_time" value="$(var use_sim_time)"/>
+        </node>
+        <let name="composed_nodes" value="[
+                {package: 'nav2_controller', plugin: 'nav2_controller::ControllerServer', name: 'controller_server', remappings: ['cmd_vel', '$(var cmd_vel_topic)'], parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_smoother', plugin: 'nav2_smoother::SmootherServer', name: 'smoother_server', parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_planner', plugin: 'nav2_planner::PlannerServer', name: 'planner_server', parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_behaviors', plugin: 'behavior_server::BehaviorServer', name: 'behavior_server', parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_bt_navigator', plugin: 'nav2_bt_navigator::BtNavigator', name: 'bt_navigator', parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_waypoint_follower', plugin: 'nav2_waypoint_follower::WaypointFollower', name: 'waypoint_follower', parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_velocity_smoother', plugin: 'nav2_velocity_smoother::VelocitySmoother', name: 'velocity_smoother', remappings: ['cmd_vel', '$(var cmd_vel_topic)', 'cmd_vel_smoothed', 'cmd_vel'], parameters: ['$(var configured_params_file)']},
+                {package: 'nav2_lifecycle_manager', plugin: 'nav2_lifecycle_manager::LifecycleManager', name: 'lifecycle_manager_navigation', parameters: ['$(var configured_params_file)', {'node_names': ['map_server', 'controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother']}]}
+        ]"/>
+        <node pkg="rclcpp_components" exec="component_manager" name="$(var container_name_full)" output="screen">
+            <param name="composable_node_descriptions" value="$(var composed_nodes)"/>
+        </node>
+    </group>
+
+</launch>
