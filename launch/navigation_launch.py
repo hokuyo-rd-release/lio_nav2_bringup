@@ -139,7 +139,7 @@ def generate_launch_description():
                 arguments=[
                     '0', '0', '0',
                     '0', '0', '0',
-                    'base_link', 'hokuyo3d'
+                    'base_link', 'yvt'
                 ],
                 output='screen'
             ),
@@ -150,11 +150,18 @@ def generate_launch_description():
                 remappings=[('cloud_in', '/hokuyo3d/hokuyo_cloud2'),
                             ('scan', '/scan')],
                 parameters=[{
+                'target_frame': 'yvt',
+                'transform_tolerance': 0.01,
                 'use_sim_time': use_sim_time,
                 'min_height': 0.0,
-                'max_height': 3.0,
-                'angle_min': -3.1415,
-                'angle_max': 3.1415,
+                'max_height': 0.3,
+                'angle_min': -1.5708,
+                'angle_max': 1.5708,
+                'angle_increment': 0.0087,
+                'range_min': 0.45,
+                'range_max': 35.0,
+                'use_inf': False,
+                'inf_epsilon': 1.0
                 }],
                 output='screen'
             ),
