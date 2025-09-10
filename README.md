@@ -42,6 +42,8 @@ enable_sound:=true
    - cloud_odom_topic: LIO座標系での点群トピック
    - publish_2d_pose: 2Dに投影した位置姿勢を配信（必要）
    - frames_accumulate: レジストレーションに使う点群を何フレーム集積するか
+   - min_registration_distance: レジストレーションを行う移動距離間隔(m)
+   - min_registration_interval_sec: レジストレーションを行う時間間隔(秒)
    - enable_lio_only_update: レジストレーションのタイミングだけではなく，LIOのタイミングで更新した自己位置を配信する
    - rviz: rviz2を起動する
    - visualize_registration_result: 地図に対するレジストレーションの成功失敗の可視化
