@@ -77,5 +77,6 @@ ros2 launch lio_nav2_bringup navigation_launch.py map:=$MAP_DIR/toyonaka.yaml
 - オドメトリ（/odom -> /base_link）はLIOを使用する想定。車輪オドメトリを使用する場合はtf構成の修正が必要
 
 # 変更履歴
+- 2025/9/9 レジストレーションを行う時間間隔・距離間隔の説明を追加
 - 2025/7/8 レジストレーションの状況の可視化・可聴化オプションの説明を追加
 - 2025/6/15 初版
