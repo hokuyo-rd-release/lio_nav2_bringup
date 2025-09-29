@@ -41,6 +41,7 @@ def generate_launch_description():
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
     map_yaml_file = LaunchConfiguration('map')
+    cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
 
     lifecycle_nodes = ['map_server',
                        'controller_server',
@@ -114,24 +115,28 @@ def generate_launch_description():
     declare_map_yaml_cmd = DeclareLaunchArgument(
         'map', default_value=os.path.join(bringup_dir, 'maps', 'map.yaml'),
         description='Full path to map yaml file')
+    
+    declare_cmd_vel_topic = DeclareLaunchArgument(
+        'cmd_vel_topic', default_value='cmd_vel',
+        description='Name of the cmd_vel topic')
 
-    rviz_config_path = os.path.join(
-        get_package_share_directory('nav2_bringup'),
-        'rviz',
-        'nav2_default_view.rviz'
-    )
+    # rviz_config_path = os.path.join(
+    #     get_package_share_directory('nav2_bringup'),
+    #     'rviz',
+    #     'nav2_default_view.rviz'
+    # )
 
 
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
-            Node(
-                package='rviz2',
-                executable='rviz2',
-                name='rviz2',
-                arguments=['-d', rviz_config_path],
-                output='screen'
-            ),
+            # Node(
+            #     package='rviz2',
+            #     executable='rviz2',
+            #     name='rviz2',
+            #     arguments=['-d', rviz_config_path],
+            #     output='screen'
+            # ),
             Node(
                 package='tf2_ros',
                 executable='static_transform_publisher',
@@ -214,7 +219,7 @@ def generate_launch_description():
                 respawn_delay=2.0,
                 parameters=[configured_params],
                 arguments=['--ros-args', '--log-level', log_level],
-                remappings=remappings),
+                remappings=remappings + [('cmd_vel', cmd_vel_topic)]),
             Node(
                 package='nav2_bt_navigator',
                 executable='bt_navigator',
@@ -245,7 +250,7 @@ def generate_launch_description():
                 parameters=[configured_params],
                 arguments=['--ros-args', '--log-level', log_level],
                 remappings=remappings +
-                        [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
+                        [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', cmd_vel_topic)]),
             Node(
                 package='nav2_lifecycle_manager',
                 executable='lifecycle_manager',
@@ -285,7 +290,7 @@ def generate_launch_description():
                 plugin='behavior_server::BehaviorServer',
                 name='behavior_server',
                 parameters=[configured_params],
-                remappings=remappings),
+                remappings=remappings + [('cmd_vel', cmd_vel_topic)]),
             ComposableNode(
                 package='nav2_bt_navigator',
                 plugin='nav2_bt_navigator::BtNavigator',
@@ -304,7 +309,7 @@ def generate_launch_description():
                 name='velocity_smoother',
                 parameters=[configured_params],
                 remappings=remappings +
-                           [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
+                           [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', cmd_vel_topic)]),
             ComposableNode(
                 package='nav2_lifecycle_manager',
                 plugin='nav2_lifecycle_manager::LifecycleManager',
@@ -331,6 +336,7 @@ def generate_launch_description():
     ld.add_action(declare_use_respawn_cmd)
     ld.add_action(declare_log_level_cmd)
     ld.add_action(declare_map_yaml_cmd)
+    ld.add_action(declare_cmd_vel_topic)
 
     # Add the actions to launch all of the navigation nodes
     ld.add_action(load_nodes)
