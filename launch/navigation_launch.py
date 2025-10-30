@@ -121,41 +121,15 @@ def generate_launch_description():
         'cmd_vel_topic', default_value='cmd_vel',
         description='Name of the cmd_vel topic')
 
-    # rviz_config_path = os.path.join(
-    #     get_package_share_directory('nav2_bringup'),
-    #     'rviz',
-    #     'nav2_default_view.rviz'
-    # )
-
-
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
-            # Node(
-            #     package='rviz2',
-            #     executable='rviz2',
-            #     name='rviz2',
-            #     arguments=['-d', rviz_config_path],
-            #     output='screen'
-            # ),
-            Node(
-                package='tf2_ros',
-                executable='static_transform_publisher',
-                name='hokuyo3d',
-                parameters=[configured_params],
-                arguments=[
-                    '0', '0', '0',
-                    '0', '0', '0',
-                    'base_link', 'yvt'
-                ],
-                output='screen'
-            ),
             Node(
                 package='pointcloud_to_laserscan',
                 executable='pointcloud_to_laserscan_node',
                 name='pointcloud_to_laserscan',
                 remappings=[('cloud_in', '/hokuyo3d/hokuyo_cloud2'),
-                            ('scan', '/scan')],
+                            ('scan', '/hokuyo3d/scan')],
                 parameters=[{
                 'target_frame': 'yvt',
                 'transform_tolerance': 0.01,
