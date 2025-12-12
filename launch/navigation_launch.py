@@ -17,19 +17,24 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, IncludeLaunchDescription, RegisterEventHandler, TimerAction, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import LoadComposableNodes
+from launch_ros.actions import LoadComposableNodes, LifecycleNode
 from launch_ros.actions import Node
 from launch_ros.descriptions import ComposableNode, ParameterFile
 from nav2_common.launch import RewrittenYaml
+from lifecycle_msgs.msg import Transition
+from launch.actions import LogInfo
+from launch_ros.event_handlers import OnStateTransition
+from launch.event_handlers import OnProcessStart
 
 
 def generate_launch_description():
     # Get the launch directory
     bringup_dir = get_package_share_directory('nav2_bringup')
     lio_nav2_dir = get_package_share_directory('lio_nav2_bringup')
+    hokuyo_nav2_dir = get_package_share_directory('hokuyo_navigation2')
 
     namespace = LaunchConfiguration('namespace')
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -42,16 +47,21 @@ def generate_launch_description():
     log_level = LaunchConfiguration('log_level')
     map_yaml_file = LaunchConfiguration('map')
     cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
-
-    lifecycle_nodes = ['map_server',
-                       'controller_server',
+    # log_path = LaunchConfiguration('log_path')
+    
+    # ログファイルの実際のパスと、パッケージ内に作成するシンボリックリンクのパス
+    # actual_log_path = os.path.join(os.path.expanduser('~'), '.ros', 'log', 'activation_times.csv')
+    # symlink_log_path = os.path.join(lio_nav2_dir, 'log', 'activation_times.csv')
+    
+    # map_serverは個別のlifecycle_managerで管理
+    map_lifecycle_nodes = ['map_server']
+    
+    nav_lifecycle_nodes = ['controller_server',
                        'smoother_server',
                        'planner_server',
                        'behavior_server',
                        'bt_navigator',
                        'waypoint_follower']
-    # ,
-    #                    'velocity_smoother']
 
     # Map fully qualified names to relative ones so the node's namespace can be prepended.
     # In case of the transforms (tf), currently, there doesn't seem to be a better alternative
@@ -90,7 +100,7 @@ def generate_launch_description():
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
-        default_value=os.path.join(lio_nav2_dir, 'config', 'nav2_params.yaml'),
+        default_value=os.path.join(hokuyo_nav2_dir, 'config/nav2', 'nav2_gnss_switch_params.yaml'),
         description='Full path to the ROS2 parameters file to use for all launched nodes')
 
     declare_autostart_cmd = DeclareLaunchArgument(
@@ -121,6 +131,34 @@ def generate_launch_description():
         'cmd_vel_topic', default_value='cmd_vel',
         description='Name of the cmd_vel topic')
 
+    # declare_log_path_cmd = DeclareLaunchArgument(
+    #     'log_path',
+    #     default_value=actual_log_path,
+    #     description='Full path to the activation time log file.')
+    
+    rviz_config_path = os.path.join(
+        get_package_share_directory('hokuyo_navigation2'),
+        'rviz',
+        'nav2.rviz'
+    )
+
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', rviz_config_path],
+        output='screen'
+    )
+
+    map_server_node = LifecycleNode(
+        package='nav2_map_server',
+        executable='map_server',
+        name='map_server',
+        output='screen',
+        namespace=namespace,
+        parameters=[{'yaml_filename': map_yaml_file, 'use_sim_time': use_sim_time, 'autostart': autostart}],
+        remappings=remappings)
+
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
@@ -129,7 +167,7 @@ def generate_launch_description():
                 executable='pointcloud_to_laserscan_node',
                 name='pointcloud_to_laserscan',
                 remappings=[('cloud_in', '/hokuyo3d/hokuyo_cloud2'),
-                            ('scan', '/hokuyo3d/scan')],
+                            ('scan', '/scan')],
                 parameters=[{
                 'target_frame': 'yvt',
                 'transform_tolerance': 0.01,
@@ -146,16 +184,6 @@ def generate_launch_description():
                 }],
                 output='screen'
             ),
-            Node(
-                package='nav2_map_server',
-                executable='map_server',
-                name='map_server',
-                output='screen',
-                parameters=[{
-                    'yaml_filename': map_yaml_file,
-                    'use_sim_time': use_sim_time
-                }],
-                remappings=remappings),
             Node(
                 package='nav2_controller',
                 executable='controller_server',
@@ -226,6 +254,15 @@ def generate_launch_description():
             #     arguments=['--ros-args', '--log-level', log_level],
             #     remappings=remappings +
             #             [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', cmd_vel_topic)]),
+            # Node(
+            #     package='lio_nav2_bringup',
+            #     executable='measure_activation_time.py',
+            #     name='nav_nodes_activation_time_monitor',
+            #     output='screen',
+            #     parameters=[{'target_nodes': nav_lifecycle_nodes,
+            #                  'output_file_path': log_path}]
+            # ),
+            # 他のナビゲーションノードを管理するlifecycle_manager
             Node(
                 package='nav2_lifecycle_manager',
                 executable='lifecycle_manager',
@@ -234,8 +271,69 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', log_level],
                 parameters=[{'use_sim_time': use_sim_time},
                             {'autostart': autostart},
-                            {'node_names': lifecycle_nodes}]),
+                            {'node_names': nav_lifecycle_nodes}]),
+            # Node(
+            #     package='lio_nav2_bringup',
+            #     executable='measure_activation_time.py',
+            #     name='map_server_activation_time_monitor',
+            #     output='screen',
+            #     parameters=[{'target_nodes': ['map_server'],
+            #                  'output_file_path': log_path}]
+            # ),
         ]
+    )
+
+    # map_server専用のlifecycle_manager
+    map_lifecycle_manager_node = Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_map',
+            output='screen',
+            arguments=['--ros-args', '--log-level', log_level],
+            parameters=[{'use_sim_time': use_sim_time},
+                        {'autostart': autostart},
+                        {'node_names': map_lifecycle_nodes}])
+
+    # rviz2が起動した後にmap_serverを起動するためのイベントハンドラ
+    map_server_event_handler = RegisterEventHandler(
+        event_handler=OnProcessStart(
+            target_action=rviz_node,
+            on_start=[
+                TimerAction(
+                    period=0.5,
+                    # lifecycle_managerも同時に起動
+                    actions=[map_server_node, map_lifecycle_manager_node])
+            ],
+        )
+    )
+
+    # map_serverがアクティブになったら他のノードを起動するイベントハンドラ
+
+    nav_nodes_event_handler = RegisterEventHandler(
+        event_handler=OnStateTransition(
+            target_lifecycle_node=map_server_node,
+            goal_state='active',
+            entities=[load_nodes],
+        )
+    )
+
+    # map_serverがinactive状態でスタックした場合のフォールバック処理
+    # inactive状態に遷移してから1秒後に、強制的にactivateを試みる
+    fallback_activate_handler = RegisterEventHandler(
+        event_handler=OnStateTransition(
+            target_lifecycle_node=map_server_node,
+            goal_state='inactive',
+            entities=[
+                LogInfo(msg='map_server became inactive. Starting 1s timer to force activation if it gets stuck.'),
+                TimerAction(
+                    period=1.0,
+                    actions=[
+                        LogInfo(msg='Timer expired. Forcing activation for map_server.'),
+                        ExecuteProcess(cmd=['ros2', 'lifecycle', 'set', 'map_server', 'activate'])
+                    ]
+                )
+            ]
+        )
     )
 
     load_composable_nodes = LoadComposableNodes(
@@ -291,13 +389,19 @@ def generate_launch_description():
                 name='lifecycle_manager_navigation',
                 parameters=[{'use_sim_time': use_sim_time,
                              'autostart': autostart,
-                             'node_names': lifecycle_nodes}]),
+                             'node_names': nav_lifecycle_nodes}]),
         ],
     )
 
     # Create the launch description and populate
     ld = LaunchDescription()
 
+    # Add action to clean up shared memory directory to avoid RTPS errors
+    # This can be helpful if the previous run crashed.
+    ld.add_action(ExecuteProcess(
+        cmd=['rm', '-rf', '/dev/shm/fastrtps*'],
+        output='screen'
+    ))
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
 
@@ -312,9 +416,25 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
     ld.add_action(declare_map_yaml_cmd)
     ld.add_action(declare_cmd_vel_topic)
+    # ld.add_action(declare_log_path_cmd)
+
+    # ログファイルへのシンボリックリンクを作成するアクション
+    # これにより、パッケージディレクトリからログにアクセスしやすくなる
+    # ld.add_action(ExecuteProcess(
+    #     cmd=['mkdir', '-p', os.path.dirname(symlink_log_path)],
+    #     output='screen'
+    # ))
+    # ld.add_action(ExecuteProcess(
+    #     cmd=['ln', '-sf', actual_log_path, symlink_log_path],
+    #     output='screen'
+    # ))
 
     # Add the actions to launch all of the navigation nodes
-    ld.add_action(load_nodes)
+    ld.add_action(rviz_node)
+    # ld.add_action(load_nodes) # Replaced by nav_nodes_event_handler
+    ld.add_action(map_server_event_handler)
+    ld.add_action(nav_nodes_event_handler)
+    ld.add_action(fallback_activate_handler)
     ld.add_action(load_composable_nodes)
 
     return ld
