@@ -121,9 +121,22 @@ def generate_launch_description():
         'cmd_vel_topic', default_value='cmd_vel',
         description='Name of the cmd_vel topic')
 
+    rviz_config_path = os.path.join(
+        get_package_share_directory('hokuyo_navigation2'),
+        'rviz',
+        'nav2_view.rviz'
+    )
+
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
+            Node(
+                package='rviz2',
+                executable='rviz2',
+                name='rviz2',
+                arguments=['-d', rviz_config_path],
+                output='screen'
+            ),
             Node(
                 package='pointcloud_to_laserscan',
                 executable='pointcloud_to_laserscan_node',
