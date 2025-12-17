@@ -17,7 +17,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction, SetEnvironmentVariable, IncludeLaunchDescription, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import LoadComposableNodes
@@ -310,7 +310,10 @@ def generate_launch_description():
 
     # Create the launch description and populate
     ld = LaunchDescription()
-
+    ld.add_action(ExecuteProcess(
+        cmd=['rm', '-rf', '/dev/shm/fastrtps*'],
+        output='screen'
+    ))
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)
 
